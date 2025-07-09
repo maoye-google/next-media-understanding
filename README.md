@@ -19,6 +19,20 @@ The platform consists of two main frontend services:
 -   **Data Visualization** (for Video Understanding): D3.js
 -   **Drawing Interaction** (for Image Understanding): Perfect Freehand
 
+### Image Handling and Data Flow
+
+The application is designed to be secure and efficient, with a clear data flow for image processing. This design makes it suitable for both cloud-based and on-premise (closed-network) deployments.
+
+-   **Sample Images**: The example images provided in the UI (e.g., cat, pumpkins, clock) are stored locally in the `image-understanding/public/assets/` directory. They are bundled with the application during the build process and served directly by the application's web server.
+
+-   **User-Uploaded Images**: When a user uploads an image, it is **not** stored on any server or cloud storage. The process is as follows:
+    1.  The user's browser reads the image file from their local disk.
+    2.  The image is converted into a **Base64-encoded Data URL** within the browser. This is a text string representation of the image.
+    3.  This Data URL is held in the browser's memory and sent as part of the API request to the application's backend every time an analysis is requested.
+    4.  The backend processes the image data from the request and then discards it.
+
+-   **Closed-Network Environment Suitability**: This in-memory, on-demand data flow is ideal for closed-network environments. When using an on-premise model like Gemma, the image data travels from the user's browser to the application backend, and then directly to the on-premise model endpoint (e.g., KubeAI) within the same network. No external cloud access is required for image data, ensuring it remains within the private environment.
+
 ## Getting Started
 
 ### Prerequisites

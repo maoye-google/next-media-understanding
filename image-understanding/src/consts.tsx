@@ -77,19 +77,24 @@ export type ModelOption = {
 
 export const modelOptions: ModelOption[] = [
   {
-    displayName: 'Gemini-2.5-Pro',
-    modelId: 'models/gemini-2.5-pro-preview-06-05',
+    displayName: 'Gemini-2.5-Pro  (Cloud)',
+    modelId: 'models/gemini-2.5-pro',
     description: 'Most capable model for complex reasoning'
   },
   {
-    displayName: 'Gemini-2.5-Flash',
+    displayName: 'Gemini-2.5-Flash  (Cloud)',
     modelId: 'models/gemini-2.5-flash-preview-05-20',
     description: 'Fast and efficient for most tasks'
   },
   {
-    displayName: 'Gemini-2.0-Flash-Lite',
+    displayName: 'Gemini-2.0-Flash-Lite  (Cloud)',
     modelId: 'models/gemini-2.0-flash-lite-001',
     description: 'Lightweight and fast'
+  },
+  {
+    displayName: 'Gemma-3:4B  (OnPrem)',
+    modelId: 'gemma-3-4b-ollama-l4',
+    description: 'Fully OnPremise Model'
   }
 ];
 

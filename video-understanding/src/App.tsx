@@ -29,9 +29,9 @@ import VideoPlayer from './VideoPlayer.jsx';
 const chartModes = Object.keys(modes.Chart.subModes);
 
 const modelOptions = [
-  { value: 'gemini-2.5-pro-preview-06-05', label: 'Gemini-2.5-Pro' },
-  { value: 'gemini-2.5-flash-preview-05-20', label: 'Gemini-2.5-Flash' },
-  { value: 'gemini-2.0-flash-lite-001', label: 'Gemini-2.0-Flash-Lite' },
+  { value: 'gemini-2.5-pro', label: 'Gemini-2.5-Pro (Cloud)' },
+  { value: 'gemini-2.5-flash', label: 'Gemini-2.5-Flash (Cloud)' },
+  { value: 'gemini-2.0-flash-lite-001', label: 'Gemini-2.0-Flash-Lite (Cloud)' }
 ];
 
 export default function App() {
