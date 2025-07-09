@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: video-understanding
-        image: ${CONTAINER_REGISTRY}/${PROJECT_ID}/video-understanding:${SHORT_SHA}
+        image: ${CONTAINER_REGISTRY}/${PROJECT_ID}/video-understanding:${BUILD_ID}
         ports:
         - containerPort: 8080
           name: http
@@ -76,8 +76,6 @@ metadata:
   namespace: ${K8S_NAMESPACE}
   labels:
     app.kubernetes.io/managed-by: cloud-build
-  annotations:
-    cloud.google.com/backend-config: '{"default": "media-understanding-backendconfig"}'
 spec:
   selector:
     app: video-understanding

@@ -1,58 +1,67 @@
+# GDC-compatible LoadBalancer services for external access
+apiVersion: v1
+kind: Service
+metadata:
+  name: image-understanding-lb
+  namespace: ${K8S_NAMESPACE}
+  labels:
+    app.kubernetes.io/managed-by: cloud-build
+spec:
+  type: LoadBalancer
+  selector:
+    app: image-understanding
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  - port: 443
+    targetPort: 8080
+    protocol: TCP
+    name: https
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: video-understanding-lb
+  namespace: ${K8S_NAMESPACE}
+  labels:
+    app.kubernetes.io/managed-by: cloud-build
+spec:
+  type: LoadBalancer
+  selector:
+    app: video-understanding
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  - port: 443
+    targetPort: 8080
+    protocol: TCP
+    name: https
+---
+# Standard Ingress for HTTPS termination (requires NGINX ingress controller on GDC)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: media-understanding-ingress
+  name: image-understanding-ingress
   namespace: ${K8S_NAMESPACE}
   labels:
     app.kubernetes.io/managed-by: cloud-build
   annotations:
-    # Use modern ingress class specification
-    kubernetes.io/ingress.class: "gce"
-    # Static IP binding - this is the critical annotation
-    kubernetes.io/ingress.global-static-ip-name: "${STATIC_IP_NAME}"
-    # Enable NEG for better load balancing
-    cloud.google.com/neg: '{"ingress": true}'
-    # SSL certificate (will be provisioned automatically)
-    networking.gke.io/managed-certificates: "media-understanding-ssl"
-    # Force HTTPS redirect - disable HTTP access
-    kubernetes.io/ingress.allow-http: "false"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 spec:
-  # No TLS section needed for Google-managed certificates
-  # The annotation networking.gke.io/managed-certificates handles this
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - ${_IMAGE_HOSTNAME}
+    secretName: image-understanding-tls
   rules:
-  - host: ${INGRESS_HOSTNAME}
+  - host: ${_IMAGE_HOSTNAME}
     http:
       paths:
-      # Order matters - more specific paths first
-      - path: /image
-        pathType: Prefix
-        backend:
-          service:
-            name: image-understanding-svc
-            port:
-              number: 80
-      - path: /api/image
-        pathType: Prefix
-        backend:
-          service:
-            name: image-understanding-svc
-            port:
-              number: 80
-      - path: /video
-        pathType: Prefix
-        backend:
-          service:
-            name: video-understanding-svc
-            port:
-              number: 80
-      - path: /api/video
-        pathType: Prefix
-        backend:
-          service:
-            name: video-understanding-svc
-            port:
-              number: 80
-      # Default root path
       - path: /
         pathType: Prefix
         backend:
@@ -61,35 +70,30 @@ spec:
             port:
               number: 80
 ---
-# Managed SSL certificate for HTTPS
-apiVersion: networking.gke.io/v1
-kind: ManagedCertificate
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
-  name: media-understanding-ssl
+  name: video-understanding-ingress
   namespace: ${K8S_NAMESPACE}
+  labels:
+    app.kubernetes.io/managed-by: cloud-build
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 spec:
-  domains:
-  - ${INGRESS_HOSTNAME}
----
-apiVersion: cloud.google.com/v1
-kind: BackendConfig
-metadata:
-  name: media-understanding-backendconfig
-  namespace: ${K8S_NAMESPACE}
-spec:
-  # Health check configuration for Autopilot
-  healthCheck:
-    checkIntervalSec: 15
-    timeoutSec: 10
-    healthyThreshold: 1
-    unhealthyThreshold: 3
-    type: HTTP
-    requestPath: /healthz
-    port: 8080
-  # Session affinity for better performance
-  sessionAffinity:
-    affinityType: "CLIENT_IP"
-    affinityCookieTtlSec: 3600
-  # Connection draining
-  connectionDraining:
-    drainingTimeoutSec: 60
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - ${_VIDEO_HOSTNAME}
+    secretName: video-understanding-tls
+  rules:
+  - host: ${_VIDEO_HOSTNAME}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: video-understanding-svc
+            port:
+              number: 80
