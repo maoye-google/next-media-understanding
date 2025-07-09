@@ -1,0 +1,42 @@
+# This file specifies files and directories to be ignored by gcloud.
+# For more information, see: gcloud topic gcloudignore
+
+.gcloudignore
+.gitignore
+.git
+
+# Node dependencies
+node_modules/
+*/node_modules/
+
+# Build artifacts
+build/
+dist/
+*/build/
+*/dist/
+.vite/
+
+# Environment files
+.env
+.env.example
+*.local
+
+# Credentials
+credentials/
+
+# Reference Links
+reference/
+
+# Logs
+logs
+*.log
+
+# Documentation
+*.md
+
+# Docker
+docker-compose.yml
+
+# IDE/Editor specific
+.idea/
+.vscode/

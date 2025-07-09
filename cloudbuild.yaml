@@ -149,7 +149,7 @@ steps:
         kubectl create namespace ${_K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
         
         if [ -f /workspace/changed_services.txt ]; then
-          cd k8s-autopilot
+          cd k8s
           
           # Create directory for processed manifests
           mkdir -p /workspace/processed_k8s

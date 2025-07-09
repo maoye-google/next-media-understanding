@@ -195,3 +195,47 @@ The MCP server enables Claude to:
 - Both frontend services use modern React 19 with TypeScript
 - Video understanding includes D3-based data visualization
 - Image understanding supports real-time drawing and media analysis
+
+### Additional Service Commands
+Both frontend services also support production server commands:
+```bash
+# Build and run production server (Node.js/Express)
+npm run build:server  # Compile TypeScript server
+npm run start:prod     # Run production server
+
+# Development server (Express)
+npm run start          # Run dev server with ts-node
+```
+
+
+
+## Gemini CLI Integration Guide
+
+### Objective
+When a user instructs **"Let's consult with Gemini"** (or similar phrasing), Claude will **invoke the Gemini CLI** as needed to facilitate multi-turn collaboration.
+
+---
+
+### Trigger
+* **Regular Expression:** `/gemini.*consulting with/`
+* Once triggered, **collaboration mode** will be maintained until the user explicitly indicates to stop.
+
+---
+
+### Collaboration Workflow (Loopable)
+| # | Process | Details |
+|---|---|---|
+| 1 | **PROMPT Preparation** | Store the latest user requirements + a summary of the previous discussion in `$PROMPT` |
+| 2 | **Gemini Call** | ```bash\ngemini <<EOF\n$PROMPT\nEOF\n```<br>Add `--max_output_tokens`, etc., as needed |
+| 3 | **Output Pasting** | Full text in the `Gemini ➜` section; if long, a summary + link to original text |
+| 4 | **Claude Comment** | In the `Claude ➜` section, analyze and integrate Gemini's suggestions, then propose the next action |
+| 5 | **Continuation Check** | Repeat steps 1-4 based on user input or plan continuation.<br>Return to normal mode with phrases like "End Gemini collaboration" or "Looks good for now" |
+
+---
+
+### Format Template
+```md
+**Gemini ➜**
+<Response from Gemini>
+**Claude ➜**
+<Integration comment & next action>

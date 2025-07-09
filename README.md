@@ -1,72 +1,93 @@
-# Media Understanding Frontend Application
+# Media Understanding Platform
 
-This is a standalone React application with AI-powered media understanding capabilities.
+This is a multi-service AI-powered media understanding application that includes image and video understanding capabilities. The application leverages Google Gemini for various media analysis tasks.
 
-## Overview
+## Architecture Overview
 
-The application provides an interactive frontend for media understanding tasks using modern web technologies and AI integration.
+The platform consists of two main frontend services:
 
-**Technology Stack:**
-- **React 19** with TypeScript
-- **Vite** for fast development and building
-- **Tailwind CSS** for styling
-- **Jotai** for state management
-- **Google Gemini AI** integration
-- **Perfect Freehand** for drawing interactions
+-   **Image Understanding**: An interactive React application for media understanding tasks with drawing, image uploads, and real-time AI analysis.
+-   **Video Understanding**: A React application for video analysis, featuring AI-powered content insights and data visualization.
 
-## Local Development Setup
+### Technology Stack
+
+-   **Frontend**: React 19 with TypeScript
+-   **Build Tool**: Vite
+-   **State Management**: Jotai
+-   **AI Integration**: Google Gemini AI (`@google/generative-ai`)
+-   **Styling**: Tailwind CSS
+-   **Data Visualization** (for Video Understanding): D3.js
+-   **Drawing Interaction** (for Image Understanding): Perfect Freehand
+
+## Getting Started
 
 ### Prerequisites
-- Node.js (v18 or higher)
-- Docker (optional, for containerized deployment)
 
-### Running Locally
+-   Node.js (v18 or higher)
+-   Docker and Docker Compose
 
-1. **Navigate to the application directory:**
-   ```bash
-   cd spatial-understanding-front
-   ```
+### Development Setup
 
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+#### Docker Compose (Recommended)
 
-3. **Set up environment variables:**
-   Create a `.env` file with your configuration:
-   ```bash
-   # Gemini API Key (Primary authentication method)
-   # Get your API key from: https://makersuite.google.com/app/apikey
-   GEMINI_API_KEY=your-gemini-api-key
-   ```
-   
-   **Simple Authentication:**
-   - The application now uses **GEMINI_API_KEY only** for simplified credential management
-   - No service account setup required - just get your API key from Google AI Studio
+The easiest way to run both services simultaneously is with Docker Compose.
 
-4. **Start the development server:**
-   ```bash
-   npm run dev
-   ```
+1.  **Create Environment File:**
+    Copy the example environment file:
+    ```bash
+    cp .env.example .env
+    ```
 
-5. **Access the application:**
-   Open `http://localhost:5173` in your browser
+2.  **Add your API Key:**
+    Edit the `.env` file and add your Google Gemini API key:
+    ```
+    GEMINI_API_KEY=your-gemini-api-key
+    ```
+    You can get a key from [Google AI Studio](https://makersuite.google.com/app/apikey).
 
-### Building for Production
+3.  **Build and Run:**
+    ```bash
+    docker compose up --build
+    ```
 
-```bash
-npm run build
-```
+The services will be available at:
+-   **Image Understanding**: `http://localhost:5173`
+-   **Video Understanding**: `http://localhost:9003`
 
-### Running with Docker
+#### Individual Service Development
+
+You can also run each service independently.
+
+**For the Image Understanding service:**
 
 ```bash
-docker compose up --build
+cd image-understanding
+npm install
+cp ../.env.example .env # Or create .env manually
+# Add GEMINI_API_KEY to .env
+npm run dev
 ```
+The service will be available at `http://localhost:5173`.
 
-The application will be available at `http://localhost:5173`
+**For the Video Understanding service:**
 
+```bash
+cd video-understanding
+npm install
+cp ../.env.example .env # Or create .env manually
+# Add GEMINI_API_KEY to .env
+npm run dev
+```
+The service will be available at `http://localhost:5174` (as per its Vite config) or as specified in its own configuration.
 
-### Google Cloud Build Command
+## Deployment
 
+This project is configured for deployment to Google Cloud Run or GKE using Cloud Build.
+
+-   **Kubernetes Manifests**: The `k8s-autopilot/` directory contains the necessary Kubernetes manifests for deploying the services.
+-   **Cloud Build**: The `cloudbuild-autopilot.yaml` file defines the build and deployment pipeline.
+
+To deploy the application using Cloud Build, you can run:
+```bash
 gcloud builds submit . --config=cloudbuild-autopilot.yaml --substitutions=_GEMINI_API_KEY=$GEMINI_API_KEY
+```
