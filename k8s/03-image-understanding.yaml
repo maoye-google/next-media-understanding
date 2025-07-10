@@ -20,8 +20,8 @@ spec:
       - name: image-understanding
         image: ${CONTAINER_REGISTRY}/${PROJECT_ID}/image-understanding:${BUILD_ID}
         ports:
-        - containerPort: 8080
-          name: http
+        - containerPort: 8443
+          name: https
         env:
         - name: GEMINI_API_KEY
           valueFrom:
@@ -30,15 +30,13 @@ spec:
               key: GEMINI_API_KEY
         - name: PORT
           value: "8080"
-        - name: NODE_ENV
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: NODE_ENV
+        - name: HTTPS_PORT
+          value: "8443"
         livenessProbe:
           httpGet:
             path: /healthz
-            port: 8080
+            port: 8443
+            scheme: HTTPS
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
@@ -46,7 +44,8 @@ spec:
         readinessProbe:
           httpGet:
             path: /readyz
-            port: 8080
+            port: 8443
+            scheme: HTTPS
           initialDelaySeconds: 10
           periodSeconds: 5
           timeoutSeconds: 5
@@ -68,6 +67,14 @@ spec:
             drop:
             - ALL
           readOnlyRootFilesystem: false  # Node.js needs write access for temp files
+        volumeMounts:
+        - name: tls-certs
+          mountPath: /etc/tls
+          readOnly: true
+      volumes:
+      - name: tls-certs
+        secret:
+          secretName: image-understanding-tls
 ---
 apiVersion: v1
 kind: Service
@@ -76,11 +83,14 @@ metadata:
   namespace: ${K8S_NAMESPACE}
   labels:
     app.kubernetes.io/managed-by: cloud-build
+  annotations:
+    service.beta.kubernetes.io/gcp-load-balancer-ssl-cert: image-understanding-tls
 spec:
   selector:
     app: image-understanding
   ports:
-  - port: 80
-    targetPort: 8080
+  - name: https
+    port: 443
+    targetPort: 8443
     protocol: TCP
-  type: ClusterIP
+  type: LoadBalancer

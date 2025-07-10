@@ -224,27 +224,6 @@ steps:
     id: 'deploy-video-understanding'
     waitFor: ['deploy-configmap']
 
-  # Deploy ingress (GDC-compatible)
-  - name: 'gcr.io/cloud-builders/kubectl'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        set -ex
-        echo "--- DEPLOYING INGRESS ---"
-        sed -e "s/\$${K8S_NAMESPACE}/${_K8S_NAMESPACE}/g" \
-            -e "s/\$${_IMAGE_HOSTNAME}/${_IMAGE_HOSTNAME}/g" \
-            -e "s/\$${_VIDEO_HOSTNAME}/${_VIDEO_HOSTNAME}/g" \
-            k8s/05-ingress.yaml > /workspace/ingress.yaml.out
-        
-        echo "--- SUBSTITUTED YAML ---"
-        cat /workspace/ingress.yaml.out
-        echo "--- END SUBSTITUTED YAML ---"
-        
-        kubectl apply -f /workspace/ingress.yaml.out
-    id: 'deploy-ingress'
-    waitFor: ['deploy-image-understanding', 'deploy-video-understanding']
-
   # Wait for deployments to be ready
   - name: 'gcr.io/cloud-builders/kubectl'
     entrypoint: 'bash'
@@ -281,68 +260,7 @@ steps:
         
         echo "✅ All deployments completed successfully!"
     id: 'verify-deployment'
-    waitFor: ['deploy-ingress']
-
-  # Verify NGINX Ingress deployment and provide access information
-  - name: 'gcr.io/cloud-builders/kubectl'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "Waiting for NGINX Ingress Controller LoadBalancer IP assignment..."
-        
-        # Wait for NGINX ingress controller to get an external IP
-        echo "Checking NGINX Ingress Controller LoadBalancer..."
-        INGRESS_IP=$(kubectl get ingress image-understanding-ingress -n ${_K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-        
-        if [ -z "$$INGRESS_IP" ]; then
-          echo "⚠️  Ingress IP not yet assigned. Checking NGINX controller service..."
-          NGINX_SERVICE=$(kubectl get svc -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
-          if [ -n "$$NGINX_SERVICE" ]; then
-            timeout 300 bash -c 'until kubectl get svc '$$NGINX_SERVICE' -n ingress-nginx -o jsonpath="{.status.loadBalancer.ingress[0].ip}" | grep -E "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$"; do sleep 10; done' || echo "Timeout waiting for NGINX LoadBalancer IP"
-            INGRESS_IP=$(kubectl get svc $$NGINX_SERVICE -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "N/A")
-          else
-            echo "⚠️  NGINX Ingress Controller not found. Please check NGINX installation."
-            INGRESS_IP="<NGINX_INGRESS_IP>"
-          fi
-        fi
-        
-        echo ""
-        echo "✅ Media Understanding Application deployed successfully!"
-        echo ""
-        echo "🌐 NGINX Ingress Architecture:"
-        echo "   Both services share the same NGINX Ingress LoadBalancer IP: $$INGRESS_IP"
-        echo "   Traffic is routed based on hostname (Host header routing)"
-        echo ""
-        echo "📡 Access Methods:"
-        echo ""
-        echo "🔧 Method 1: Direct IP Access (for testing)"
-        echo "   ⚠️  Note: HTTPS may show certificate warnings with IP access"
-        echo "   Image Service: http://$$INGRESS_IP"
-        echo "   Video Service: http://$$INGRESS_IP"
-        echo ""
-        echo "🌟 Method 2: Domain-based Access (recommended)"
-        echo "   Add this line to your /etc/hosts file:"
-        echo "   $$INGRESS_IP ${_IMAGE_HOSTNAME} ${_VIDEO_HOSTNAME}"
-        echo ""
-        echo "   Then access via HTTPS (with proper certificates):"
-        echo "   📱 Image Understanding: https://${_IMAGE_HOSTNAME}"
-        echo "   🎥 Video Understanding: https://${_VIDEO_HOSTNAME}"
-        echo ""
-        echo "📋 How it works:"
-        echo "   • Both services use the same LoadBalancer IP ($$INGRESS_IP)"
-        echo "   • NGINX Ingress Controller routes traffic based on hostname"
-        echo "   • Each service has its own TLS certificate for HTTPS"
-        echo "   • Self-signed certificates (accept browser warnings for internal use)"
-        echo ""
-        echo "🔍 Debug commands:"
-        echo "   kubectl get pods -n ${_K8S_NAMESPACE}"
-        echo "   kubectl get ingress -n ${_K8S_NAMESPACE}"
-        echo "   kubectl get svc -n ${_K8S_NAMESPACE}"
-        echo "   kubectl logs -l app=image-understanding -n ${_K8S_NAMESPACE}"
-        echo "   kubectl logs -l app=video-understanding -n ${_K8S_NAMESPACE}"
-    id: 'verify-ingress'
-    waitFor: ['verify-deployment']
+    waitFor: ['deploy-image-understanding', 'deploy-video-understanding']
 
 # Store built images
 # images:

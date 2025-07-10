@@ -4,6 +4,8 @@
  */
 
 import express from 'express';
+import https from 'https';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import compression from 'compression';
@@ -16,6 +18,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = process.env.PORT || 8080;
+const httpsPort = process.env.HTTPS_PORT || 8443;
 
 // Initialize GoogleGenAI client on server-side
 const ai = new GoogleGenAI({
@@ -59,9 +62,9 @@ app.get('/readyz', async (req, res) => {
     res.status(200).json({ status: 'ready' });
   } catch (error) {
     console.error('Readiness check failed:', error);
-    res.status(503).json({ 
-      status: 'not ready', 
-      error: 'API key not configured' 
+    res.status(503).json({
+      status: 'not ready',
+      error: 'API key not configured'
     });
   }
 });
@@ -76,7 +79,7 @@ app.post('/api/image/generate', async (req, res) => {
 
     if (model === 'gemma-3-4b-ollama-l4') {
       const kubeAIEndpoint = 'http://kubeai.kubeai.svc.cluster.local/openai/v1/chat/completions';
-      
+
       const response = await fetch(kubeAIEndpoint, {
         method: 'POST',
         headers: {
@@ -116,12 +119,12 @@ app.post('/api/image/generate', async (req, res) => {
       if (!responseText) {
         throw new Error('No response text received from AI model');
       }
-      
+
       let cleanedResponse = responseText;
       if (responseText.includes('```json')) {
         cleanedResponse = responseText.split('```json')[1].split('```')[0];
       }
-      
+
       const parsedResponse = JSON.parse(cleanedResponse);
       return res.status(200).json(parsedResponse);
 
@@ -130,10 +133,10 @@ app.post('/api/image/generate', async (req, res) => {
         throw new Error('GEMINI_API_KEY not configured');
       }
 
-      const config: any = { 
-        temperature: Number(temperature) || 0.5 
+      const config: any = {
+        temperature: Number(temperature) || 0.5
       };
-      
+
       // Add model-specific config
       if (thinkingConfig) {
         config.thinkingConfig = thinkingConfig;
@@ -144,11 +147,11 @@ app.post('/api/image/generate', async (req, res) => {
         contents: [{
           role: 'user',
           parts: [
-            { 
-              inlineData: { 
-                data: imageDataUrl.replace('data:image/png;base64,', ''), 
-                mimeType: 'image/png' 
-              } 
+            {
+              inlineData: {
+                data: imageDataUrl.replace('data:image/png;base64,', ''),
+                mimeType: 'image/png'
+              }
             },
             { text: prompt },
           ],
@@ -160,18 +163,18 @@ app.post('/api/image/generate', async (req, res) => {
       if (!responseText) {
         throw new Error('No response text received from AI model');
       }
-      
+
       let cleanedResponse = responseText;
       if (responseText.includes('```json')) {
         cleanedResponse = responseText.split('```json')[1].split('```')[0];
       }
-      
+
       const parsedResponse = JSON.parse(cleanedResponse);
       res.status(200).json(parsedResponse);
     }
   } catch (error) {
     console.error('Error generating content:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to generate content from image',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -186,6 +189,12 @@ app.get('/', (req, res) => {
   res.redirect('/image/');
 });
 
-app.listen(port, () => {
-  console.log(`Image understanding server running on port ${port}`);
+// Create HTTPS server
+const httpsOptions = {
+  key: fs.readFileSync('/etc/tls/tls.key'),
+  cert: fs.readFileSync('/etc/tls/tls.crt')
+};
+
+https.createServer(httpsOptions, app).listen(httpsPort, () => {
+  console.log(`Image understanding server running on port ${httpsPort}`);
 });

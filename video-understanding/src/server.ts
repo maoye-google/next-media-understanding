@@ -4,6 +4,8 @@
  */
 
 import express from 'express';
+import https from 'https';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import compression from 'compression';
@@ -16,6 +18,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = process.env.PORT || 8080;
+const httpsPort = process.env.HTTPS_PORT || 8443;
 
 const systemInstruction = `When given a video and a query, call the relevant \
 function only once with the appropriate timecodes and text for the video`;
@@ -54,7 +57,7 @@ async function waitForFileProcessing(fileName: string) {
   return getFile;
 }
 
-const upload = multer({ 
+const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 100 * 1024 * 1024 } // 100 MB limit
 });
@@ -93,9 +96,9 @@ app.get('/readyz', async (req, res) => {
     res.status(200).json({ status: 'ready' });
   } catch (error) {
     console.error('Readiness check failed:', error);
-    res.status(503).json({ 
-      status: 'not ready', 
-      error: 'API key not configured' 
+    res.status(503).json({
+      status: 'not ready',
+      error: 'API key not configured'
     });
   }
 });
@@ -203,7 +206,7 @@ app.post('/api/video/generate-from-uploaded', upload.none(), async (req, res) =>
   try {
     // console.log('Raw request body:', req.body);
     // console.log('Content-Type:', req.headers['content-type']);
-    
+
     const { text, functionDeclarations, model = 'gemini-2.5-flash-001', fileUri } = req.body;
     // console.log('Processing video...');
     // console.log('text='+text);
@@ -263,6 +266,16 @@ app.get('/video/*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-app.listen(port, () => {
-  console.log(`Video understanding server running on port ${port}`);
+app.get('/', (req, res) => {
+  res.redirect('/video/');
+});
+
+// Create HTTPS server
+const httpsOptions = {
+  key: fs.readFileSync('/etc/tls/tls.key'),
+  cert: fs.readFileSync('/etc/tls/tls.crt')
+};
+
+https.createServer(httpsOptions, app).listen(httpsPort, () => {
+  console.log(`Video understanding server running on port ${httpsPort}`);
 });
