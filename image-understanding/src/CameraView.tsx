@@ -156,6 +156,19 @@ export function CameraView() {
     }
   }, [cameraType, rtspUrl, retryCounter]);
 
+  // Don't render camera view if user is editing RTSP URL
+  if (cameraType === 'edit-rtsp') {
+    return (
+      <div className="flex items-center justify-center h-full min-h-96 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+        <div className="text-center p-6">
+          <div className="text-6xl mb-4">⚙️</div>
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">Configure RTSP Camera</h3>
+          <p className="text-sm text-gray-600">Enter your RTSP camera URL in the dropdown above</p>
+        </div>
+      </div>
+    );
+  }
+
   // Handle video element loading
   const handleVideoLoad = () => {
     if (videoRef.current && cameraStream) {

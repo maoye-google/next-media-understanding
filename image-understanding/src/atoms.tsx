@@ -96,7 +96,7 @@ export const IsUploadedImageAtom = atom(false);
 
 export const IsCameraViewActiveAtom = atom<boolean>(false);
 
-export const CameraTypeAtom = atom<'usb' | 'rtsp'>('usb');
+export const CameraTypeAtom = atom<'usb' | 'rtsp' | 'edit-rtsp'>('usb');
 
 export const RTSPUrlAtom = atom<string>(
   import.meta.env.VITE_RTSP_URL || ''
@@ -104,7 +104,7 @@ export const RTSPUrlAtom = atom<string>(
 
 export const CameraStreamAtom = atom<MediaStream | null>(null);
 
-export const IsRTSPAvailableAtom = atom<boolean>(true);
+export const IsRTSPAvailableAtom = atom<boolean>(false);
 
 export const IsCameraConnectingAtom = atom<boolean>(false);
 

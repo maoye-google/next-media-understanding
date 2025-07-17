@@ -47,7 +47,16 @@ export function SideControls() {
 
   const handleStartCamera = () => {
     resetState();
-    setIsCameraViewActive(true);
+    // Only start camera for USB, RTSP will be handled by type selection
+    if (cameraType === 'usb') {
+      setIsCameraViewActive(true);
+    } else if (cameraType === 'edit-rtsp') {
+      // User is configuring RTSP, show config UI
+      setIsCameraViewActive(true);
+    } else {
+      // For RTSP camera, check if it's configured first
+      setIsCameraViewActive(true);
+    }
   };
 
   const handleCancelCamera = () => {

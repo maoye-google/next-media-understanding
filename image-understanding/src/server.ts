@@ -189,12 +189,18 @@ app.get('/', (req, res) => {
   res.redirect('/image/');
 });
 
-// Create HTTPS server
-const httpsOptions = {
-  key: fs.readFileSync('/etc/tls/tls.key'),
-  cert: fs.readFileSync('/etc/tls/tls.crt')
-};
-
-https.createServer(httpsOptions, app).listen(httpsPort, () => {
-  console.log(`Image understanding server running on port ${httpsPort}`);
-});
+// Create HTTPS server only if certs are available
+try {
+  const httpsOptions = {
+    key: fs.readFileSync('/etc/tls/tls.key'),
+    cert: fs.readFileSync('/etc/tls/tls.crt')
+  };
+  https.createServer(httpsOptions, app).listen(httpsPort, () => {
+    console.log(`Image understanding server running on HTTPS port ${httpsPort}`);
+  });
+} catch (error) {
+  console.log('TLS certs not found, starting HTTP server instead.');
+  app.listen(port, () => {
+    console.log(`Image understanding server running on HTTP port ${port}`);
+  });
+}
