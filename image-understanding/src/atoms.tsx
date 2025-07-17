@@ -94,4 +94,22 @@ export const BumpSessionAtom = atom(0);
 
 export const IsUploadedImageAtom = atom(false);
 
+export const IsCameraViewActiveAtom = atom<boolean>(false);
+
+export const CameraTypeAtom = atom<'usb' | 'rtsp'>('usb');
+
+export const RTSPUrlAtom = atom<string>(
+  import.meta.env.VITE_RTSP_URL || ''
+);
+
+export const CameraStreamAtom = atom<MediaStream | null>(null);
+
+export const IsRTSPAvailableAtom = atom<boolean>(false);
+
+export const IsCameraConnectingAtom = atom<boolean>(false);
+
+export const CameraErrorAtom = atom<Error | null>(null);
+
+export const CameraPermissionAtom = atom<'prompt' | 'granted' | 'denied'>('prompt');
+
 export const SelectedModelAtom = atom<ModelOption>(defaultModel);

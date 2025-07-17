@@ -24,9 +24,14 @@ import {
   ImageSentAtom,
   ImageSrcAtom,
   IsUploadedImageAtom,
+  IsCameraViewActiveAtom,
+  CameraTypeAtom,
+  CameraStreamAtom,
+  IsCameraConnectingAtom,
 } from './atoms';
 import {useResetState} from './hooks';
 import {ScreenshareButton} from './ScreenshareButton';
+import {TakePhotoButton} from './TakePhotoButton';
 
 export function SideControls() {
   const [, setImageSrc] = useAtom(ImageSrcAtom);
@@ -34,32 +39,76 @@ export function SideControls() {
   const [, setIsUploadedImage] = useAtom(IsUploadedImageAtom);
   const [, setBumpSession] = useAtom(BumpSessionAtom);
   const [, setImageSent] = useAtom(ImageSentAtom);
+  const [isCameraViewActive, setIsCameraViewActive] = useAtom(IsCameraViewActiveAtom);
+  const [cameraType, setCameraType] = useAtom(CameraTypeAtom);
+  const [, setCameraStream] = useAtom(CameraStreamAtom);
+  const [isConnecting] = useAtom(IsCameraConnectingAtom);
   const resetState = useResetState();
+
+  const handleStartCamera = () => {
+    resetState();
+    setIsCameraViewActive(true);
+  };
+
+  const handleCancelCamera = () => {
+    // Stop any active camera stream
+    setCameraStream(null);
+    setIsCameraViewActive(false);
+  };
 
   return (
     <div className="flex flex-col gap-3">
-      <label className="flex items-center button bg-[#3B68FF] px-12 !text-white !border-none">
-        <input
-          className="hidden"
-          type="file"
-          accept=".jpg, .jpeg, .png, .webp"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) {
-              const reader = new FileReader();
-              reader.onload = (e) => {
-                resetState();
-                setImageSrc(e.target?.result as string);
-                setIsUploadedImage(true);
-                setImageSent(false);
-                setBumpSession((prev) => prev + 1);
-              };
-              reader.readAsDataURL(file);
-            }
-          }}
-        />
-        <div>Upload an image</div>
-      </label>
+      {isCameraViewActive ? (
+        <>
+          <TakePhotoButton />
+          <button
+            className="button flex gap-3 justify-center items-center"
+            onClick={handleCancelCamera}
+          >
+            <div className="text-lg">❌</div>
+            <div>Cancel Camera</div>
+          </button>
+        </>
+      ) : (
+        <>
+          <label className="flex items-center button bg-[#3B68FF] px-12 !text-white !border-none">
+            <input
+              className="hidden"
+              type="file"
+              accept=".jpg, .jpeg, .png, .webp"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  const reader = new FileReader();
+                  reader.onload = (e) => {
+                    resetState();
+                    setImageSrc(e.target?.result as string);
+                    setIsUploadedImage(true);
+                    setImageSent(false);
+                    setBumpSession((prev) => prev + 1);
+                  };
+                  reader.onerror = () => {
+                    console.error('Error reading file:', reader.error);
+                    alert('Failed to read the selected file. Please try again.');
+                  };
+                  reader.readAsDataURL(file);
+                }
+              }}
+            />
+            <div>Upload an image</div>
+          </label>
+          
+          <button
+            className="button flex gap-3 justify-center items-center bg-[var(--accent-color)] !text-white !border-none"
+            onClick={handleStartCamera}
+            disabled={isConnecting}
+          >
+            <div className="text-lg">📷</div>
+            <div>{isConnecting ? 'Connecting...' : 'Take a Photo'}</div>
+          </button>
+        </>
+      )}
+      
       <div className="hidden">
         <button
           className="button flex gap-3 justify-center items-center"

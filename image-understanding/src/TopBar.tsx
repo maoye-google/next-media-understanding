@@ -21,6 +21,7 @@ import {useAtom} from 'jotai';
 import {DetectTypeAtom, HoverEnteredAtom, RevealOnHoverModeAtom, SelectedModelAtom} from './atoms';
 import {modelOptions} from './consts';
 import {useResetState} from './hooks';
+import {CameraSelector} from './CameraSelector';
 
 export function TopBar() {
   const resetState = useResetState();
@@ -44,6 +45,7 @@ export function TopBar() {
         </button>
       </div>
       <div className="flex gap-3 items-center">
+        <CameraSelector />
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium">Model:</label>
           <select

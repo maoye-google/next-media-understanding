@@ -1,6 +1,16 @@
 # Cloud Build configuration for image-understanding service
 
 steps:
+  # Set up environment variables before build
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Setup Environment'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "VITE_RTSP_URL=${_RTSP_URL}" > .env.local
+        echo "Environment configured with RTSP URL: ${_RTSP_URL}"
+
   # Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Build'
@@ -66,6 +76,7 @@ images:
 substitutions:
   _GKE_CLUSTER: 'media-understanding-cluster'
   _GKE_ZONE: 'us-central1-a'
+  _RTSP_URL: 'rtsp://default-camera.local/stream'
 
 options:
   logging: CLOUD_LOGGING_ONLY

@@ -18,11 +18,12 @@
 // limitations under the License.
 
 import {useAtom} from 'jotai';
-import {ShareStream} from './atoms';
+import {ShareStream, IsCameraViewActiveAtom} from './atoms';
 import {useResetState} from './hooks';
 
 export function ScreenshareButton() {
   const [, setStream] = useAtom(ShareStream);
+  const [, setIsCameraViewActive] = useAtom(IsCameraViewActiveAtom);
   const resetState = useResetState();
 
   return (
@@ -32,6 +33,7 @@ export function ScreenshareButton() {
         resetState();
         navigator.mediaDevices.getDisplayMedia({video: true}).then((stream) => {
           setStream(stream);
+          setIsCameraViewActive(false); // Ensure camera view is disabled for screenshare
         });
       }}>
       <div className="text-lg">🖥️</div>

@@ -36,9 +36,11 @@ import {
   RevealOnHoverModeAtom,
   ShareStream,
   VideoRefAtom,
+  IsCameraViewActiveAtom,
 } from './atoms';
 import {lineOptions, segmentationColorsRgb} from './consts';
 import {getSvgPathFromStroke} from './utils';
+import {CameraView} from './CameraView';
 
 export function Content() {
   const [imageSrc] = useAtom(ImageSrcAtom);
@@ -57,6 +59,7 @@ export function Content() {
   const [drawMode] = useAtom(DrawModeAtom);
   const [lines, setLines] = useAtom(LinesAtom);
   const [activeColor] = useAtom(ActiveColorAtom);
+  const [isCameraViewActive] = useAtom(IsCameraViewActiveAtom);
 
   // Handling resize and aspect ratios
   const boundingBoxContainerRef = useRef<HTMLDivElement | null>(null);
@@ -79,6 +82,21 @@ export function Content() {
   }, []);
 
   const {ref: containerRef} = useResizeDetector({onResize});
+
+  // Listen for camera video dimensions
+  useEffect(() => {
+    const handleCameraVideoLoaded = (event: CustomEvent) => {
+      setActiveMediaDimensions({
+        width: event.detail.width,
+        height: event.detail.height,
+      });
+    };
+
+    window.addEventListener('cameraVideoLoaded', handleCameraVideoLoaded as EventListener);
+    return () => {
+      window.removeEventListener('cameraVideoLoaded', handleCameraVideoLoaded as EventListener);
+    };
+  }, []);
 
   const boundingBoxContainer = useMemo(() => {
     const {width, height} = activeMediaDimensions;
@@ -286,7 +304,9 @@ export function Content() {
 
   return (
     <div ref={containerRef} className="w-full grow relative">
-      {stream ? (
+      {isCameraViewActive ? (
+        <CameraView />
+      ) : stream ? (
         <video
           className="absolute top-0 left-0 w-full h-full object-contain"
           autoPlay
