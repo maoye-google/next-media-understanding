@@ -104,7 +104,7 @@ export const RTSPUrlAtom = atom<string>(
 
 export const CameraStreamAtom = atom<MediaStream | null>(null);
 
-export const IsRTSPAvailableAtom = atom<boolean>(false);
+export const IsRTSPAvailableAtom = atom<boolean>(true);
 
 export const IsCameraConnectingAtom = atom<boolean>(false);
 
