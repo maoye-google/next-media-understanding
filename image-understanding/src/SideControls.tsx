@@ -28,6 +28,9 @@ import {
   CameraTypeAtom,
   CameraStreamAtom,
   IsCameraConnectingAtom,
+  CameraErrorAtom,
+  RTSPUrlAtom,
+  VideoReadyAtom,
 } from './atoms';
 import {useResetState} from './hooks';
 import {ScreenshareButton} from './ScreenshareButton';
@@ -40,42 +43,63 @@ export function SideControls() {
   const [, setBumpSession] = useAtom(BumpSessionAtom);
   const [, setImageSent] = useAtom(ImageSentAtom);
   const [isCameraViewActive, setIsCameraViewActive] = useAtom(IsCameraViewActiveAtom);
-  const [cameraType, setCameraType] = useAtom(CameraTypeAtom);
-  const [, setCameraStream] = useAtom(CameraStreamAtom);
+  const [cameraType] = useAtom(CameraTypeAtom);
+  const [cameraStream, setCameraStream] = useAtom(CameraStreamAtom);
   const [isConnecting] = useAtom(IsCameraConnectingAtom);
+  const [cameraError] = useAtom(CameraErrorAtom);
+  const [rtspUrl] = useAtom(RTSPUrlAtom);
+  const [videoReady] = useAtom(VideoReadyAtom);
   const resetState = useResetState();
 
   const handleStartCamera = () => {
-    resetState();
-    // Only start camera for USB, RTSP will be handled by type selection
-    if (cameraType === 'usb') {
-      setIsCameraViewActive(true);
-    } else if (cameraType === 'edit-rtsp') {
-      // User is configuring RTSP, show config UI
-      setIsCameraViewActive(true);
-    } else {
-      // For RTSP camera, check if it's configured first
-      setIsCameraViewActive(true);
+    // Check if RTSP is selected but no URL is configured
+    if (cameraType === 'rtsp' && !rtspUrl.trim()) {
+      alert('RTSP URL not configured. Please enter an RTSP URL above.');
+      return;
     }
+    
+    resetState();
+    // Set camera view active - CameraView will handle the actual camera start
+    setIsCameraViewActive(true);
   };
 
-  const handleCancelCamera = () => {
-    // Stop any active camera stream
+  const handleStopCamera = () => {
+    // Use the global camera controls
+    if (window.cameraControls) {
+      window.cameraControls.stopCamera();
+    }
+    // Also clean up local state
     setCameraStream(null);
     setIsCameraViewActive(false);
+  };
+
+  const canStartCamera = () => {
+    if (cameraType === 'rtsp' && !rtspUrl.trim()) {
+      return false;
+    }
+    return true;
   };
 
   return (
     <div className="flex flex-col gap-3">
       {isCameraViewActive ? (
         <>
-          <TakePhotoButton />
+          {cameraStream && !isConnecting && videoReady ? (
+            <TakePhotoButton />
+          ) : (
+            <div className="text-center p-2 text-sm text-gray-600">
+              {isConnecting ? 'Connecting to camera...' : 
+               cameraStream && !videoReady ? 'Loading video...' : 
+               'Camera is starting...'}
+            </div>
+          )}
           <button
-            className="button flex gap-3 justify-center items-center"
-            onClick={handleCancelCamera}
+            className="button flex gap-3 justify-center items-center bg-red-500 !text-white !border-none"
+            onClick={handleStopCamera}
+            disabled={isConnecting}
           >
-            <div className="text-lg">❌</div>
-            <div>Cancel Camera</div>
+            <div className="text-lg">⏹️</div>
+            <div>Stop Camera</div>
           </button>
         </>
       ) : (
@@ -110,10 +134,11 @@ export function SideControls() {
           <button
             className="button flex gap-3 justify-center items-center bg-[var(--accent-color)] !text-white !border-none"
             onClick={handleStartCamera}
-            disabled={isConnecting}
+            disabled={!canStartCamera() || isConnecting}
+            title={!canStartCamera() ? 'Please configure RTSP URL first' : ''}
           >
             <div className="text-lg">📷</div>
-            <div>{isConnecting ? 'Connecting...' : 'Take a Photo'}</div>
+            <div>Start Camera</div>
           </button>
         </>
       )}

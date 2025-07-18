@@ -28,7 +28,19 @@ import {
   CameraErrorAtom,
   CameraPermissionAtom,
   IsRTSPAvailableAtom,
+  IsCameraViewActiveAtom,
+  VideoReadyAtom,
 } from './atoms';
+
+// Global type declaration for camera controls
+declare global {
+  interface Window {
+    cameraControls?: {
+      startCamera: () => Promise<void>;
+      stopCamera: () => void;
+    };
+  }
+}
 
 export function CameraView() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -40,12 +52,33 @@ export function CameraView() {
   const [cameraError, setCameraError] = useAtom(CameraErrorAtom);
   const [cameraPermission, setCameraPermission] = useAtom(CameraPermissionAtom);
   const [, setIsRtspAvailable] = useAtom(IsRTSPAvailableAtom);
+  const [isCameraViewActive, setIsCameraViewActive] = useAtom(IsCameraViewActiveAtom);
+  const [, setVideoReady] = useAtom(VideoReadyAtom);
   const [retryCounter, setRetryCounter] = useState(0);
 
-  // Set video ref in atom for use by other components
+  // Set video ref in atom for use by other components - update whenever video ref changes
   useEffect(() => {
     setVideoRefAtom({ current: videoRef.current });
-  }, [setVideoRefAtom]);
+  }, [setVideoRefAtom, videoRef.current]);
+
+  // Ensure video element gets the stream when it changes
+  useEffect(() => {
+    if (videoRef.current && cameraStream) {
+      const video = videoRef.current;
+      video.srcObject = cameraStream;
+      
+      // Force load metadata
+      video.load();
+      
+      // Play the video and wait for it to be ready
+      video.play().then(() => {
+        console.log('Video started playing successfully');
+      }).catch(error => {
+        console.error('Error playing video:', error);
+        setCameraError(new Error('Failed to play video stream'));
+      });
+    }
+  }, [cameraStream]);
 
   // Handle USB camera stream
   const startUSBCamera = async () => {
@@ -63,8 +96,8 @@ export function CameraView() {
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 640, max: 1280 },
+          height: { ideal: 480, max: 720 },
           facingMode: 'user'
         },
         audio: false
@@ -75,6 +108,8 @@ export function CameraView() {
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        // Ensure video plays
+        videoRef.current.play().catch(console.error);
       }
     } catch (error) {
       console.error('Error starting USB camera:', error);
@@ -109,7 +144,7 @@ export function CameraView() {
 
       // Note: Direct RTSP streaming in browsers requires a proxy server
       // This is a placeholder that would need integration with a WebRTC/HLS proxy
-      throw new Error('RTSP streaming requires a proxy server. This feature is not yet implemented.');
+      throw new Error('RTSP streaming requires a WebRTC/HLS proxy server to work in browsers. Direct RTSP connections are not supported by web browsers for security reasons. Consider using a streaming server like GStreamer, FFmpeg, or Node Media Server to convert RTSP to WebRTC/HLS format.');
       
     } catch (error) {
       console.error('Error starting RTSP camera:', error);
@@ -135,35 +170,62 @@ export function CameraView() {
     }
   };
 
-  // Handle USB camera lifecycle
-  useEffect(() => {
+  // Manual camera start functions (called by Start Camera button)
+  const startCamera = async () => {
     if (cameraType === 'usb') {
-      startUSBCamera();
-      return () => {
-        if (cameraStream) {
-          cameraStream.getTracks().forEach(track => track.stop());
-          setCameraStream(null);
-        }
-      };
+      await startUSBCamera();
+    } else if (cameraType === 'rtsp') {
+      await startRTSPCamera();
     }
-  }, [cameraType, retryCounter]);
+  };
 
-  // Handle RTSP camera lifecycle  
+  // Stop camera stream
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setVideoReady(false);
+    setIsCameraViewActive(false);
+  };
+
+  // Auto-start camera when camera view becomes active
   useEffect(() => {
-    if (cameraType === 'rtsp') {
-      startRTSPCamera();
-      // No cleanup needed yet as RTSP is not fully implemented
+    if (isCameraViewActive && !cameraStream && !isConnecting && !cameraError) {
+      setVideoReady(false); // Reset video ready state before starting
+      startCamera();
     }
-  }, [cameraType, rtspUrl, retryCounter]);
+  }, [isCameraViewActive, cameraStream, isConnecting, cameraError]);
 
-  // Don't render camera view if user is editing RTSP URL
-  if (cameraType === 'edit-rtsp') {
+  // Expose start/stop functions to parent components
+  useEffect(() => {
+    window.cameraControls = { startCamera, stopCamera };
+    return () => {
+      delete window.cameraControls;
+    };
+  }, [cameraType, rtspUrl]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [cameraStream]);
+
+  // Show camera preview area when camera view is not active
+  if (!isCameraViewActive) {
     return (
       <div className="flex items-center justify-center h-full min-h-96 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
         <div className="text-center p-6">
-          <div className="text-6xl mb-4">⚙️</div>
-          <h3 className="text-lg font-semibold text-gray-700 mb-2">Configure RTSP Camera</h3>
-          <p className="text-sm text-gray-600">Enter your RTSP camera URL in the dropdown above</p>
+          <div className="text-6xl mb-4">📷</div>
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">Camera Ready</h3>
+          <p className="text-sm text-gray-600">
+            {cameraType === 'usb' ? 'USB Camera selected' : 'RTSP Camera selected'}
+            <br />
+            Click "Start Camera" to begin streaming
+          </p>
         </div>
       </div>
     );
@@ -172,7 +234,14 @@ export function CameraView() {
   // Handle video element loading
   const handleVideoLoad = () => {
     if (videoRef.current && cameraStream) {
-      videoRef.current.play().catch(error => {
+      const video = videoRef.current;
+      console.log('Video loadeddata event fired', {
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        readyState: video.readyState
+      });
+      
+      video.play().catch(error => {
         console.error('Error playing video:', error);
         setCameraError(new Error('Failed to play video stream'));
       });
@@ -181,6 +250,20 @@ export function CameraView() {
 
   const handleVideoLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement>) => {
     const video = e.currentTarget;
+    console.log('Video metadata loaded', {
+      videoWidth: video.videoWidth,
+      videoHeight: video.videoHeight,
+      readyState: video.readyState
+    });
+    
+    // Update video ref to ensure TakePhotoButton gets the correct reference
+    setVideoRefAtom({ current: video });
+    
+    // Check if video has valid dimensions
+    if (video.videoWidth > 0 && video.videoHeight > 0) {
+      setVideoReady(true);
+    }
+    
     // Dispatch a custom event to notify Content component of video dimensions
     // This ensures activeMediaDimensions gets updated for overlay positioning
     const event = new CustomEvent('cameraVideoLoaded', {
@@ -228,7 +311,7 @@ export function CameraView() {
   }
 
   return (
-    <div className="flex items-center justify-center h-full min-h-96">
+    <div className="flex items-center justify-center h-full min-h-96 w-full p-4">
       <video
         ref={videoRef}
         autoPlay
@@ -236,8 +319,23 @@ export function CameraView() {
         muted
         onLoadedMetadata={handleVideoLoadedMetadata}
         onLoadedData={handleVideoLoad}
-        className="max-w-full max-h-full object-contain rounded-lg"
-        style={{ transform: cameraType === 'usb' ? 'scaleX(-1)' : 'none' }} // Mirror USB camera
+        onCanPlay={() => console.log('Video can start playing')}
+        onCanPlayThrough={() => console.log('Video can play through')}
+        onPlaying={() => console.log('Video is playing')}
+        onWaiting={() => console.log('Video is waiting for data')}
+        onError={(e) => {
+          console.error('Video error:', e);
+          setCameraError(new Error('Video element error'));
+        }}
+        className="object-contain rounded-lg shadow-lg"
+        style={{ 
+          transform: cameraType === 'usb' ? 'scaleX(-1)' : 'none', // Mirror USB camera
+          maxWidth: 'min(500px, 70vw)',
+          maxHeight: 'min(375px, 50vh)',
+          width: 'auto',
+          height: 'auto',
+          border: '2px solid #e5e7eb'
+        }}
       />
     </div>
   );

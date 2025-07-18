@@ -22,23 +22,20 @@ import { useState, useRef, useEffect } from 'react';
 import {
   CameraTypeAtom,
   RTSPUrlAtom,
-  IsRTSPAvailableAtom,
   CameraErrorAtom,
 } from './atoms';
 
 export function CameraSelector() {
   const [cameraType, setCameraType] = useAtom(CameraTypeAtom);
   const [rtspUrl, setRtspUrl] = useAtom(RTSPUrlAtom);
-  const [isRtspAvailable, setIsRtspAvailable] = useAtom(IsRTSPAvailableAtom);
-  const [, setCameraError] = useAtom(CameraErrorAtom);
+  const [cameraError, setCameraError] = useAtom(CameraErrorAtom);
   const [tempUrl, setTempUrl] = useState('');
   const [isTesting, setIsTesting] = useState(false);
   const urlInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-focus input when in edit mode
+  // Initialize temp URL when component mounts or RTSP is selected
   useEffect(() => {
-    if (cameraType === 'edit-rtsp' && urlInputRef.current) {
-      urlInputRef.current.focus();
+    if (cameraType === 'rtsp') {
       setTempUrl(rtspUrl);
     }
   }, [cameraType, rtspUrl]);
@@ -82,52 +79,36 @@ export function CameraSelector() {
       
       if (isConnected) {
         setRtspUrl(trimmedUrl);
-        setIsRtspAvailable(true);
-        setCameraType('rtsp'); // Switch to RTSP camera after successful configuration
         setCameraError(null);
       } else {
-        setIsRtspAvailable(false);
         throw new Error('Failed to connect to RTSP camera. Please check the URL and network connectivity.');
       }
     } catch (error) {
       setCameraError(error instanceof Error ? error : new Error('Invalid RTSP URL'));
-      setIsRtspAvailable(false);
     } finally {
       setIsTesting(false);
     }
   };
 
-  const handleUrlCancel = () => {
-    setCameraType('usb'); // Return to USB camera
-    setCameraError(null);
-  };
-
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        <label className="text-sm font-medium">Camera:</label>
+        <label className="text-sm font-medium">Camera Source:</label>
         <select
           value={cameraType}
           onChange={(e) => {
-            const newType = e.target.value as 'usb' | 'rtsp' | 'edit-rtsp';
+            const newType = e.target.value as 'usb' | 'rtsp';
             setCameraType(newType);
             setCameraError(null);
           }}
           className="bg-[var(--input-color)] border-[var(--border-color)] rounded px-2 py-1 text-sm focus:border-[var(--accent-color)] focus:outline-none"
         >
           <option value="usb">Browser USB Camera</option>
-          <option 
-            value="rtsp" 
-            disabled={!isRtspAvailable}
-            className={!isRtspAvailable ? 'text-gray-400' : ''}
-          >
-            RTSP Camera {!isRtspAvailable ? '(Not configured)' : ''}
-          </option>
-          <option value="edit-rtsp">Edit RTSP URL</option>
+          <option value="rtsp">RTSP Camera</option>
         </select>
       </div>
 
-      {cameraType === 'edit-rtsp' && (
+      {cameraType === 'rtsp' && (
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium">RTSP URL:</label>
           <input
@@ -140,8 +121,6 @@ export function CameraSelector() {
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 handleUrlSave();
-              } else if (e.key === 'Escape') {
-                handleUrlCancel();
               }
             }}
             disabled={isTesting}
@@ -154,23 +133,21 @@ export function CameraSelector() {
           >
             {isTesting ? '🔄' : '✓'} {isTesting ? 'Testing...' : 'Test & Save'}
           </button>
-          <button
-            onClick={handleUrlCancel}
-            disabled={isTesting}
-            className="bg-gray-500 text-white px-3 py-1 rounded text-sm hover:opacity-80 disabled:opacity-50"
-            aria-label="Cancel RTSP configuration"
-          >
-            Cancel
-          </button>
         </div>
       )}
 
       {cameraType === 'rtsp' && rtspUrl && (
         <div className="flex items-center gap-2">
-          <span className="text-xs text-green-600">✓ RTSP configured</span>
+          <span className="text-xs text-green-600">✓ RTSP URL saved:</span>
           <span className="text-xs text-gray-500 font-mono max-w-32 truncate" title={rtspUrl}>
             {rtspUrl}
           </span>
+        </div>
+      )}
+
+      {cameraError && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-red-600">⚠️ {cameraError.message}</span>
         </div>
       )}
     </div>

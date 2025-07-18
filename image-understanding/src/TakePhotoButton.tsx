@@ -27,6 +27,7 @@ import {
   BumpSessionAtom,
   CameraStreamAtom,
   CameraErrorAtom,
+  VideoReadyAtom,
 } from './atoms';
 import { useResetState } from './hooks';
 
@@ -37,19 +38,58 @@ export function TakePhotoButton() {
   const [, setIsUploadedImage] = useAtom(IsUploadedImageAtom);
   const [, setIsCameraViewActive] = useAtom(IsCameraViewActiveAtom);
   const [, setBumpSession] = useAtom(BumpSessionAtom);
-  const [, setCameraStream] = useAtom(CameraStreamAtom);
+  const [cameraStream, setCameraStream] = useAtom(CameraStreamAtom);
   const [, setCameraError] = useAtom(CameraErrorAtom);
+  const [videoReady] = useAtom(VideoReadyAtom);
   const resetState = useResetState();
 
   const handleTakePhoto = () => {
     try {
-      if (videoRef.current) {
-        const video = videoRef.current;
-        
-        // Check if video has valid dimensions
-        if (video.videoWidth === 0 || video.videoHeight === 0) {
-          throw new Error('Video stream not ready or has invalid dimensions');
+      // Try to get video element from ref first, then fallback to DOM query
+      let video = videoRef.current;
+      
+      if (!video || video.videoWidth === 0) {
+        // Fallback: try to find video element in DOM
+        const videoElements = document.querySelectorAll('video');
+        for (const videoEl of videoElements) {
+          if (videoEl.srcObject === cameraStream && videoEl.videoWidth > 0) {
+            video = videoEl;
+            break;
+          }
         }
+      }
+      
+      if (!video) {
+        throw new Error('Video element not available');
+      }
+      
+      // Debug logging
+      console.log('Video debug info:', {
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        readyState: video.readyState,
+        paused: video.paused,
+        ended: video.ended,
+        srcObject: video.srcObject,
+        currentTime: video.currentTime,
+        videoReady: videoReady,
+        cameraStream: cameraStream,
+        videoRefCurrent: videoRef.current
+      });
+      
+      // Check if video has valid dimensions and is playing
+      if (video.videoWidth === 0 || video.videoHeight === 0) {
+        throw new Error(`Video stream not ready or has invalid dimensions. Width: ${video.videoWidth}, Height: ${video.videoHeight}, ReadyState: ${video.readyState}`);
+      }
+      
+      if (video.paused || video.ended) {
+        throw new Error('Video is not currently playing');
+      }
+      
+      // Additional readiness check
+      if (video.readyState < 2) {
+        throw new Error('Video metadata not loaded yet. Please wait a moment and try again.');
+      }
 
         const canvas = document.createElement('canvas');
         canvas.width = video.videoWidth;
@@ -82,9 +122,6 @@ export function TakePhotoButton() {
         setCameraStream(null);
         setIsCameraViewActive(false);
         setCameraError(null);
-      } else {
-        throw new Error('Video element not available');
-      }
     } catch (error) {
       console.error('Error taking photo:', error);
       setCameraError(error instanceof Error ? error : new Error('Unknown error occurred'));
