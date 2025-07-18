@@ -28,6 +28,7 @@ import {
   CameraStreamAtom,
   CameraErrorAtom,
   VideoReadyAtom,
+  CameraTypeAtom,
 } from './atoms';
 import { useResetState } from './hooks';
 
@@ -41,6 +42,7 @@ export function TakePhotoButton() {
   const [cameraStream, setCameraStream] = useAtom(CameraStreamAtom);
   const [, setCameraError] = useAtom(CameraErrorAtom);
   const [videoReady] = useAtom(VideoReadyAtom);
+  const [cameraType] = useAtom(CameraTypeAtom);
   const resetState = useResetState();
 
   const handleTakePhoto = () => {
@@ -98,6 +100,12 @@ export function TakePhotoButton() {
         
         if (!ctx) {
           throw new Error('Could not get canvas 2D context');
+        }
+
+        // Apply mirroring transformation for USB cameras to match video display
+        if (cameraType === 'usb') {
+          ctx.scale(-1, 1);
+          ctx.translate(-canvas.width, 0);
         }
 
         // Draw the current video frame to canvas
