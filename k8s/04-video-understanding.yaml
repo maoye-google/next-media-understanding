@@ -16,6 +16,8 @@ spec:
       labels:
         app: video-understanding
     spec:
+      imagePullSecrets:
+      - name: gcr-json-key
       containers:
       - name: video-understanding
         image: ${CONTAINER_REGISTRY}/${PROJECT_ID}/video-understanding:${BUILD_ID}

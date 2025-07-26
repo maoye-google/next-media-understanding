@@ -16,6 +16,8 @@ spec:
       labels:
         app: image-understanding
     spec:
+      imagePullSecrets:
+      - name: gcr-json-key
       containers:
       - name: image-understanding
         image: ${CONTAINER_REGISTRY}/${PROJECT_ID}/image-understanding:${BUILD_ID}

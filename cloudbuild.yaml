@@ -127,6 +127,38 @@ steps:
     id: 'get-credentials'
     waitFor: ['Push Images']
 
+  # Create namespace and required secrets
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Create namespace if it doesn't exist
+        kubectl create namespace ${_K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Create Gemini API key secret (assumes GEMINI_API_KEY is set in build trigger)
+        if [[ -n "$GEMINI_API_KEY" ]]; then
+          kubectl create secret generic gemini-credentials \
+            --from-literal=GEMINI_API_KEY="$GEMINI_API_KEY" \
+            --namespace=${_K8S_NAMESPACE} \
+            --dry-run=client -o yaml | kubectl apply -f -
+          echo "✓ Created Gemini API key secret"
+        else
+          echo "⚠️  GEMINI_API_KEY not set - deployment may fail"
+        fi
+        
+        # Create image pull secret for GCR
+        kubectl create secret docker-registry gcr-json-key \
+          --docker-server=gcr.io \
+          --docker-username=oauth2accesstoken \
+          --docker-password="$(gcloud auth print-access-token)" \
+          --docker-email="$(gcloud auth list --filter=status:ACTIVE --format='value(account)')" \
+          --namespace=${_K8S_NAMESPACE} \
+          --dry-run=client -o yaml | kubectl apply -f -
+        echo "✓ Created GCR image pull secret"
+    id: 'create-secrets'
+    waitFor: ['get-credentials']
+
   # Generate self-signed certificates for HTTPS access
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
@@ -157,7 +189,7 @@ steps:
         
         echo "✓ Created TLS certificates for both services"
     id: 'create-tls-secrets'
-    waitFor: ['get-credentials']
+    waitFor: ['create-secrets']
 
   # Deploy configmap
   - name: 'gcr.io/cloud-builders/kubectl'
@@ -262,6 +294,38 @@ steps:
     id: 'verify-deployment'
     waitFor: ['deploy-image-understanding', 'deploy-video-understanding']
 
+  # Display deployment status and access information
+  - name: 'gcr.io/cloud-builders/kubectl'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "🚀 =========================="
+        echo "🚀 DEPLOYMENT COMPLETED! 🚀"
+        echo "🚀 =========================="
+        echo ""
+        echo "📊 Deployment Status:"
+        kubectl get pods,svc,deployments -n ${_K8S_NAMESPACE}
+        echo ""
+        echo "🌐 Service Endpoints:"
+        kubectl get svc -n ${_K8S_NAMESPACE} -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.loadBalancer.ingress[0].ip}{":"}{.spec.ports[0].port}{"\n"}{end}' | while read name ip_port; do
+          if [[ -n "$ip_port" && "$ip_port" != ":" ]]; then
+            echo "  - $name: https://$ip_port"
+          fi
+        done
+        echo ""
+        echo "🔗 Port Forward Commands:"
+        echo "  kubectl port-forward svc/image-understanding-svc 8080:443 -n ${_K8S_NAMESPACE}"
+        echo "  kubectl port-forward svc/video-understanding-svc 8081:443 -n ${_K8S_NAMESPACE}"
+        echo ""
+        echo "📝 Access URLs (after port-forward):"
+        echo "  - Image Understanding: https://localhost:8080"
+        echo "  - Video Understanding: https://localhost:8081"
+        echo ""
+        echo "✅ Next Media Understanding deployed successfully to GDC cluster: ${_GDC_CLUSTER_NAME}"
+    id: 'display-status'
+    waitFor: ['verify-deployment']
+
 # Store built images
 # images:
 #   - '${_CONTAINER_REGISTRY}/${PROJECT_ID}/image-understanding'
@@ -270,7 +334,7 @@ steps:
 # Enhanced substitution variables for flexibility
 substitutions:
   # GDC Cluster Configuration
-  _GDC_CLUSTER_NAME: 'gdc-cloudspaces-tokyo'
+  _GDC_CLUSTER_NAME: 'gdc-tokyo-mini'
   _K8S_NAMESPACE: 'media-understanding'
   
   # Container Registry
@@ -278,6 +342,7 @@ substitutions:
   
   # Build Configuration
   _SCAN_LOCATION: 'us'
+  _PROJECT_NUMBER: '788991200845'
   
   # Domain Configuration for separate services
   _IMAGE_HOSTNAME: 'image-understanding.internal'    # Domain for image service
@@ -296,4 +361,4 @@ options:
 timeout: '1800s'
 
 # Service account needs RBAC permissions on GDC cluster
-serviceAccount: 'projects/$PROJECT_ID/serviceAccounts/685813425367-compute@developer.gserviceaccount.com'
+serviceAccount: 'projects/$PROJECT_ID/serviceAccounts/${_PROJECT_NUMBER}-compute@developer.gserviceaccount.com'
