@@ -136,15 +136,15 @@ steps:
         # Create namespace if it doesn't exist
         kubectl create namespace ${_K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
         
-        # Create Gemini API key secret (assumes GEMINI_API_KEY is set in build trigger)
-        if [[ -n "$GEMINI_API_KEY" ]]; then
+        # Create Gemini API key secret (assumes _GEMINI_API_KEY is set in build trigger)
+        if [[ -n "$_GEMINI_API_KEY" ]]; then
           kubectl create secret generic gemini-credentials \
-            --from-literal=GEMINI_API_KEY="$GEMINI_API_KEY" \
+            --from-literal=GEMINI_API_KEY="$_GEMINI_API_KEY" \
             --namespace=${_K8S_NAMESPACE} \
             --dry-run=client -o yaml | kubectl apply -f -
           echo "✓ Created Gemini API key secret"
         else
-          echo "⚠️  GEMINI_API_KEY not set - deployment may fail"
+          echo "⚠️  _GEMINI_API_KEY not set - deployment may fail"
         fi
         
         # Create image pull secret for GCR
@@ -347,13 +347,14 @@ substitutions:
   # Domain Configuration for separate services
   _IMAGE_HOSTNAME: 'image-understanding.internal'    # Domain for image service
   _VIDEO_HOSTNAME: 'video-understanding.internal'    # Domain for video service
+  _GEMINI_API_KEY: ''
 
 # GDC build options
 options:
   # IMPORTANT: You MUST configure a Cloud Build private pool with network
   # access to your GDC cluster and specify it here.
   # pool:
-  #   name: 'projects/anthos-bare-metal-lab-1/locations/us-central1/workerPools/gdc-worker-pool'
+  #   name: 'projects/anthos-bare-metal-lab-2/locations/us-central1/workerPools/gdc-worker-pool'
   logging: CLOUD_LOGGING_ONLY
   machineType: 'E2_HIGHCPU_8'
 

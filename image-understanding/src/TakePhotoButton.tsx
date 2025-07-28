@@ -142,7 +142,7 @@ export function TakePhotoButton() {
       onClick={handleTakePhoto}
     >
       <div className="text-lg">📸</div>
-      <div>Take a Photo</div>
+      <div>写真を撮る</div>
     </button>
   );
 }

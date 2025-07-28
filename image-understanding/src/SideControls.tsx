@@ -99,7 +99,7 @@ export function SideControls() {
             disabled={isConnecting}
           >
             <div className="text-lg">⏹️</div>
-            <div>Stop Camera</div>
+            <div>カメラを停止</div>
           </button>
         </>
       ) : (
@@ -128,7 +128,7 @@ export function SideControls() {
                 }
               }}
             />
-            <div>Upload an image</div>
+            <div>イメージをアップロード</div>
           </label>
           
           <button
@@ -138,7 +138,7 @@ export function SideControls() {
             title={!canStartCamera() ? 'Please configure RTSP URL first' : ''}
           >
             <div className="text-lg">📷</div>
-            <div>Start Camera</div>
+            <div>カメラを利用</div>
           </button>
         </>
       )}

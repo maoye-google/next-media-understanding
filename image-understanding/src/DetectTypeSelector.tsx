@@ -24,15 +24,15 @@ import {DetectTypes} from './Types';
 export function DetectTypeSelector() {
   return (
     <div className="flex flex-col flex-shrink-0">
-      <div className="mb-3 uppercase">Give me:</div>
+      <div className="mb-3 uppercase">処理目標:</div>
       <div className="flex flex-col gap-3">
         {[
-          '2D bounding boxes',
-          'Segmentation masks',
-          'Points',
-          '3D bounding boxes',
-        ].map((label) => (
-          <SelectOption key={label} label={label} />
+          { value: '2d_bounding_boxes', label: '2D バウンディングボックス' },
+          { value: 'segmentation_masks', label: 'セグメンテーションマスク' },
+          { value: 'points', label: 'ポイント' },
+          { value: '3d_bounding_boxes', label: '3D バウンディングボックス' },
+        ].map((option) => (
+          <SelectOption key={option.value} label={option.label} />
         ))}
       </div>
     </div>
