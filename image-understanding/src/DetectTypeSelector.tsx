@@ -22,24 +22,30 @@ import {DetectTypeAtom, HoverEnteredAtom} from './atoms';
 import {DetectTypes} from './Types';
 
 export function DetectTypeSelector() {
+  const detectOptions = [
+    { englishValue: '2D bounding boxes', label: '2D バウンディングボックス' },
+    { englishValue: 'Segmentation masks', label: 'セグメンテーションマスク' },
+    { englishValue: 'Points', label: 'ポイント' },
+    { englishValue: '3D bounding boxes', label: '3D バウンディングボックス' },
+  ];
+
   return (
     <div className="flex flex-col flex-shrink-0">
       <div className="mb-3 uppercase">処理目標:</div>
       <div className="flex flex-col gap-3">
-        {[
-          { value: '2d_bounding_boxes', label: '2D バウンディングボックス' },
-          { value: 'segmentation_masks', label: 'セグメンテーションマスク' },
-          { value: 'points', label: 'ポイント' },
-          { value: '3d_bounding_boxes', label: '3D バウンディングボックス' },
-        ].map((option) => (
-          <SelectOption key={option.value} label={option.label} />
+        {detectOptions.map((option) => (
+          <SelectOption 
+            key={option.englishValue} 
+            englishValue={option.englishValue as DetectTypes}
+            label={option.label} 
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function SelectOption({label}: {label: string}) {
+function SelectOption({englishValue, label}: {englishValue: DetectTypes; label: string}) {
   const [detectType, setDetectType] = useAtom(DetectTypeAtom);
   const [, setHoverEntered] = useAtom(HoverEnteredAtom);
   // const resetState = useResetState();
@@ -48,13 +54,13 @@ function SelectOption({label}: {label: string}) {
     <button
       className="py-6 items-center bg-transparent text-center gap-3"
       style={{
-        borderColor: detectType === label ? 'var(--accent-color)' : undefined,
+        borderColor: detectType === englishValue ? 'var(--accent-color)' : undefined,
         backgroundColor:
-          detectType === label ? 'var(--border-color)' : undefined,
+          detectType === englishValue ? 'var(--border-color)' : undefined,
       }}
       onClick={() => {
         setHoverEntered(false);
-        setDetectType(label as DetectTypes);
+        setDetectType(englishValue);
       }}>
       {label}
     </button>

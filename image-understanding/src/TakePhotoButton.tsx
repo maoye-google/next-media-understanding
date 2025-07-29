@@ -29,6 +29,8 @@ import {
   CameraErrorAtom,
   VideoReadyAtom,
   CameraTypeAtom,
+  AvailableCamerasAtom,
+  SelectedCameraDeviceAtom,
 } from './atoms';
 import { useResetState } from './hooks';
 
@@ -43,7 +45,20 @@ export function TakePhotoButton() {
   const [, setCameraError] = useAtom(CameraErrorAtom);
   const [videoReady] = useAtom(VideoReadyAtom);
   const [cameraType] = useAtom(CameraTypeAtom);
+  const [availableCameras] = useAtom(AvailableCamerasAtom);
+  const [selectedCameraDevice] = useAtom(SelectedCameraDeviceAtom);
   const resetState = useResetState();
+
+  // Determine if current camera should be mirrored (only front cameras)
+  const shouldMirrorCamera = () => {
+    if (cameraType !== 'usb') return false;
+    
+    // Find the currently selected camera
+    const selectedCamera = availableCameras.find(camera => camera.deviceId === selectedCameraDevice);
+    
+    // Mirror only if it's a front/user camera or if we can't determine (default for USB cameras without specific device info)
+    return !selectedCamera || selectedCamera.facingMode === 'user' || !selectedCamera.facingMode;
+  };
 
   const handleTakePhoto = () => {
     try {
@@ -102,8 +117,8 @@ export function TakePhotoButton() {
           throw new Error('Could not get canvas 2D context');
         }
 
-        // Apply mirroring transformation for USB cameras to match video display
-        if (cameraType === 'usb') {
+        // Apply mirroring transformation only for front cameras to match video display
+        if (shouldMirrorCamera()) {
           ctx.scale(-1, 1);
           ctx.translate(-canvas.width, 0);
         }

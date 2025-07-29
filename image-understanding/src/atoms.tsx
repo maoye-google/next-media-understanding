@@ -115,3 +115,16 @@ export const CameraPermissionAtom = atom<'prompt' | 'granted' | 'denied'>('promp
 export const VideoReadyAtom = atom<boolean>(false);
 
 export const SelectedModelAtom = atom<ModelOption>(defaultModel);
+
+// Camera device management atoms
+export type CameraDevice = {
+  deviceId: string;
+  label: string;
+  facingMode?: 'user' | 'environment';
+};
+
+export const AvailableCamerasAtom = atom<CameraDevice[]>([]);
+
+export const SelectedCameraDeviceAtom = atom<string | null>(null);
+
+export const IsMobileDeviceAtom = atom<boolean>(false);

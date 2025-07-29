@@ -30,7 +30,10 @@ import {
   IsRTSPAvailableAtom,
   IsCameraViewActiveAtom,
   VideoReadyAtom,
+  AvailableCamerasAtom,
+  SelectedCameraDeviceAtom,
 } from './atoms';
+import { getConstraintsForCamera } from './cameraUtils';
 
 // Global type declaration for camera controls
 declare global {
@@ -54,7 +57,20 @@ export function CameraView() {
   const [, setIsRtspAvailable] = useAtom(IsRTSPAvailableAtom);
   const [isCameraViewActive, setIsCameraViewActive] = useAtom(IsCameraViewActiveAtom);
   const [, setVideoReady] = useAtom(VideoReadyAtom);
+  const [availableCameras] = useAtom(AvailableCamerasAtom);
+  const [selectedCameraDevice] = useAtom(SelectedCameraDeviceAtom);
   const [retryCounter, setRetryCounter] = useState(0);
+
+  // Determine if current camera should be mirrored (only front cameras)
+  const shouldMirrorCamera = () => {
+    if (cameraType !== 'usb') return false;
+    
+    // Find the currently selected camera
+    const selectedCamera = availableCameras.find(camera => camera.deviceId === selectedCameraDevice);
+    
+    // Mirror only if it's a front/user camera or if we can't determine (default for USB cameras without specific device info)
+    return !selectedCamera || selectedCamera.facingMode === 'user' || !selectedCamera.facingMode;
+  };
 
   // Set video ref in atom for use by other components - update whenever video ref changes
   useEffect(() => {
@@ -65,18 +81,11 @@ export function CameraView() {
   useEffect(() => {
     if (videoRef.current && cameraStream) {
       const video = videoRef.current;
+      console.log('Setting video srcObject to new stream');
       video.srcObject = cameraStream;
       
-      // Force load metadata
-      video.load();
-      
-      // Play the video and wait for it to be ready
-      video.play().then(() => {
-        console.log('Video started playing successfully');
-      }).catch(error => {
-        console.error('Error playing video:', error);
-        setCameraError(new Error('Failed to play video stream'));
-      });
+      // Don't call load() or play() here - let the video events handle it
+      // This prevents race conditions
     }
   }, [cameraStream]);
 
@@ -94,23 +103,39 @@ export function CameraView() {
         throw new Error('Camera permission denied. Please allow camera access and try again.');
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
+      // Find the selected camera or use default constraints
+      let videoConstraints;
+      if (selectedCameraDevice && availableCameras.length > 0) {
+        const selectedCamera = availableCameras.find(camera => camera.deviceId === selectedCameraDevice);
+        if (selectedCamera) {
+          videoConstraints = getConstraintsForCamera(selectedCamera);
+        } else {
+          // Fallback to default constraints if selected camera not found
+          videoConstraints = {
+            width: { ideal: 640, max: 1280 },
+            height: { ideal: 480, max: 720 },
+            facingMode: 'user'
+          };
+        }
+      } else {
+        // Default constraints for when no specific camera is selected
+        videoConstraints = {
           width: { ideal: 640, max: 1280 },
           height: { ideal: 480, max: 720 },
           facingMode: 'user'
-        },
+        };
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: videoConstraints,
         audio: false
       });
 
       setCameraStream(stream);
       setCameraPermission('granted');
       
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        // Ensure video plays
-        videoRef.current.play().catch(console.error);
-      }
+      // Don't set srcObject here - the useEffect will handle it
+      // This prevents race conditions and duplicate play() calls
     } catch (error) {
       console.error('Error starting USB camera:', error);
       setCameraError(error instanceof Error ? error : new Error('Failed to start USB camera'));
@@ -172,30 +197,93 @@ export function CameraView() {
 
   // Manual camera start functions (called by Start Camera button)
   const startCamera = async () => {
-    if (cameraType === 'usb') {
-      await startUSBCamera();
-    } else if (cameraType === 'rtsp') {
-      await startRTSPCamera();
+    try {
+      if (cameraType === 'usb') {
+        await startUSBCamera();
+      } else if (cameraType === 'rtsp') {
+        await startRTSPCamera();
+      }
+    } catch (error) {
+      console.error('Error in startCamera:', error);
+      throw error; // Re-throw so calling code can handle it
     }
   };
 
   // Stop camera stream
   const stopCamera = () => {
+    console.log('Stopping camera stream');
+    
+    // Stop all tracks from the current stream
     if (cameraStream) {
-      cameraStream.getTracks().forEach(track => track.stop());
+      cameraStream.getTracks().forEach(track => {
+        console.log('Stopping track:', track.kind, track.label);
+        track.stop();
+      });
       setCameraStream(null);
     }
+    
+    // Clear video element source
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    
+    // Reset states
     setVideoReady(false);
     setIsCameraViewActive(false);
+    setCameraError(null);
+    setIsConnecting(false);
   };
 
-  // Auto-start camera when camera view becomes active
+  // Auto-start camera when camera view becomes active (but not when just switching cameras)
   useEffect(() => {
-    if (isCameraViewActive && !cameraStream && !isConnecting && !cameraError) {
+    if (isCameraViewActive && !cameraStream && !isConnecting && !cameraError && selectedCameraDevice) {
+      console.log('Auto-starting camera for camera view activation');
       setVideoReady(false); // Reset video ready state before starting
-      startCamera();
+      
+      const autoStartCamera = async () => {
+        try {
+          await startCamera();
+        } catch (error) {
+          console.error('Auto-start camera failed:', error);
+          // Error is already handled in startCamera functions
+        }
+      };
+      
+      autoStartCamera();
     }
-  }, [isCameraViewActive, cameraStream, isConnecting, cameraError]);
+  }, [isCameraViewActive]);
+
+  // Restart camera when selected camera device changes (for USB cameras)
+  useEffect(() => {
+    if (cameraType === 'usb' && selectedCameraDevice && isCameraViewActive) {
+      // Always restart when camera device changes, whether stream is active or not
+      console.log('Camera device changed to:', selectedCameraDevice);
+      
+      // Clear any existing errors first
+      setCameraError(null);
+      
+      // If there's an active stream, stop it first
+      if (cameraStream) {
+        console.log('Stopping current camera stream before switching');
+        cameraStream.getTracks().forEach(track => track.stop());
+        setCameraStream(null);
+        setVideoReady(false);
+      }
+      
+      // Start new camera with a small delay to ensure cleanup
+      const timeoutId = setTimeout(async () => {
+        try {
+          console.log('Starting new camera with device:', selectedCameraDevice);
+          await startCamera();
+        } catch (error) {
+          console.error('Failed to start camera after switching:', error);
+          setCameraError(new Error('Failed to switch to selected camera. Please try again.'));
+        }
+      }, 200);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [selectedCameraDevice]);
 
   // Expose start/stop functions to parent components
   useEffect(() => {
@@ -241,10 +329,16 @@ export function CameraView() {
         readyState: video.readyState
       });
       
-      video.play().catch(error => {
-        console.error('Error playing video:', error);
-        setCameraError(new Error('Failed to play video stream'));
-      });
+      // Only try to play if video is not already playing or attempting to play
+      if (video.paused && video.readyState >= 2) {
+        video.play().catch(error => {
+          // Ignore AbortError as it's usually caused by rapid stream switching
+          if (error.name !== 'AbortError') {
+            console.error('Error playing video:', error);
+            setCameraError(new Error('Failed to play video stream'));
+          }
+        });
+      }
     }
   };
 
@@ -262,6 +356,16 @@ export function CameraView() {
     // Check if video has valid dimensions
     if (video.videoWidth > 0 && video.videoHeight > 0) {
       setVideoReady(true);
+    }
+    
+    // Auto-play when metadata is loaded (this is the safest place to start playback)
+    if (video.paused) {
+      video.play().catch(error => {
+        if (error.name !== 'AbortError') {
+          console.error('Error playing video after metadata loaded:', error);
+          setCameraError(new Error('Failed to play video stream'));
+        }
+      });
     }
     
     // Dispatch a custom event to notify Content component of video dimensions
@@ -329,7 +433,7 @@ export function CameraView() {
         }}
         className="object-contain rounded-lg shadow-lg"
         style={{ 
-          transform: cameraType === 'usb' ? 'scaleX(-1)' : 'none', // Mirror USB camera
+          transform: shouldMirrorCamera() ? 'scaleX(-1)' : 'none', // Mirror only front cameras
           maxWidth: 'min(500px, 70vw)',
           maxHeight: 'min(375px, 50vh)',
           width: 'auto',

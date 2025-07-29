@@ -23,15 +23,62 @@ import {
   CameraTypeAtom,
   RTSPUrlAtom,
   CameraErrorAtom,
+  AvailableCamerasAtom,
+  SelectedCameraDeviceAtom,
+  IsMobileDeviceAtom,
+  type CameraDevice,
 } from './atoms';
+import { enumerateCameras, isMobileDevice, getFriendlyCameraName } from './cameraUtils';
 
 export function CameraSelector() {
   const [cameraType, setCameraType] = useAtom(CameraTypeAtom);
   const [rtspUrl, setRtspUrl] = useAtom(RTSPUrlAtom);
   const [cameraError, setCameraError] = useAtom(CameraErrorAtom);
+  const [availableCameras, setAvailableCameras] = useAtom(AvailableCamerasAtom);
+  const [selectedCameraDevice, setSelectedCameraDevice] = useAtom(SelectedCameraDeviceAtom);
+  const [isMobile, setIsMobile] = useAtom(IsMobileDeviceAtom);
   const [tempUrl, setTempUrl] = useState('');
   const [isTesting, setIsTesting] = useState(false);
+  const [isEnumerating, setIsEnumerating] = useState(false);
   const urlInputRef = useRef<HTMLInputElement>(null);
+
+  // Initialize mobile detection and camera enumeration on mount
+  useEffect(() => {
+    const initializeCameras = async () => {
+      // Detect if mobile device
+      const mobile = isMobileDevice();
+      setIsMobile(mobile);
+      
+      // Only enumerate cameras for USB camera type
+      if (cameraType === 'usb') {
+        setIsEnumerating(true);
+        try {
+          const cameras = await enumerateCameras();
+          setAvailableCameras(cameras);
+          
+          // Auto-select first camera if none selected, but only when switching to USB camera type
+          if (cameras.length > 0 && !selectedCameraDevice) {
+            console.log('Auto-selecting first camera:', cameras[0]);
+            setSelectedCameraDevice(cameras[0].deviceId);
+          } else if (cameras.length > 0 && selectedCameraDevice) {
+            // Verify the selected camera still exists in the new list
+            const stillExists = cameras.some(camera => camera.deviceId === selectedCameraDevice);
+            if (!stillExists) {
+              console.log('Previously selected camera no longer available, selecting first available');
+              setSelectedCameraDevice(cameras[0].deviceId);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to enumerate cameras:', error);
+          setCameraError(new Error('Failed to detect available cameras'));
+        } finally {
+          setIsEnumerating(false);
+        }
+      }
+    };
+    
+    initializeCameras();
+  }, [cameraType]);
 
   // Initialize temp URL when component mounts or RTSP is selected
   useEffect(() => {
@@ -103,10 +150,39 @@ export function CameraSelector() {
           }}
           className="bg-[var(--input-color)] border-[var(--border-color)] rounded px-2 py-1 text-sm focus:border-[var(--accent-color)] focus:outline-none"
         >
-          <option value="usb">Browser USB Camera</option>
+          <option value="usb">Browser Camera</option>
           <option value="rtsp">RTSP Camera</option>
         </select>
       </div>
+
+      {cameraType === 'usb' && (availableCameras.length > 0 || isEnumerating) && (
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium">Camera:</label>
+          {isEnumerating ? (
+            <span className="text-sm text-gray-500">🔄 Detecting cameras...</span>
+          ) : (
+            <select
+              value={selectedCameraDevice || ''}
+              onChange={(e) => {
+                setSelectedCameraDevice(e.target.value);
+                setCameraError(null);
+              }}
+              className="bg-[var(--input-color)] border-[var(--border-color)] rounded px-2 py-1 text-sm focus:border-[var(--accent-color)] focus:outline-none"
+              disabled={availableCameras.length === 0}
+            >
+              {availableCameras.length === 0 ? (
+                <option value="">No cameras detected</option>
+              ) : (
+                availableCameras.map((camera) => (
+                  <option key={camera.deviceId} value={camera.deviceId}>
+                    {getFriendlyCameraName(camera, isMobile)}
+                  </option>
+                ))
+              )}
+            </select>
+          )}
+        </div>
+      )}
 
       {cameraType === 'rtsp' && (
         <div className="flex items-center gap-2">
